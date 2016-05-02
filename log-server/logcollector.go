@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 	"errors"
+	"github.com/deep-patel/log-collection-server/utils"
 )
 
 // Job holds the attributes needed to perform unit of work.
@@ -14,13 +15,7 @@ type Job struct {
 	LogStr  string
 	ClientIP string
 }
-type LogConfig struct{
-	LogLocationDir string
-	MaxLogFiles int
-	MaxFileToDelete int
-	MaxSizeOfLogFiles uint32
-	LogTrace bool
-}
+
 // NewWorker creates takes a numeric id and a channel w/ worker pool.
 func NewWorker(id int, workerPool chan chan Job) Worker {
 	return Worker{
@@ -46,7 +41,7 @@ func (w Worker) start() {
 
 			select {
 			case job := <-w.jobQueue:
-				WriteLog(job.ClientIP + "\t" + job.LogStr)
+				utils.WriteLog(job.ClientIP + "\t" + job.LogStr)
 			case <-w.quitChan:
 				fmt.Printf("worker%d stopping\n", w.id)
 				return
@@ -92,9 +87,7 @@ func (d *Dispatcher) dispatch() {
 		select {
 		case job := <-d.jobQueue:
 			go func() {
-				fmt.Printf("fetching workerJobQueue\n")
 				workerJobQueue := <-d.workerPool
-				fmt.Printf("adding\n",)
 				workerJobQueue <- job
 			}()
 		}
@@ -144,17 +137,17 @@ func main() {
         fmt.Println("Required configuration file location. Provide the same using -c <configuration file location>")
         error++
     }
-
+	if error > 0{
+		return
+	}
     logConfig, err := validateConfigFile(*configFile)
     if err!=nil{
     	fmt.Println(err)
-    	error++
+    	return
     }
-    if error>0{
-    	return;
-    }
+    
 
-    InitLogger(logConfig)
+    utils.InitLogger(logConfig)
 
 	// Create the job queue.
 	jobQueue := make(chan Job, *maxQueueSize)
@@ -170,9 +163,9 @@ func main() {
 	log.Fatal(http.ListenAndServe(":" + *port, nil))
 }
 
-func validateConfigFile(configFileLocation string) (*LogConfig, error) {
+func validateConfigFile(configFileLocation string) (*utils.LogConfig, error) {
 	config := make(map[string]string)
-    err := Load(configFileLocation, config)
+    err := utils.Load(configFileLocation, config)
     if err != nil {
         log.Fatal(err)
     }
@@ -219,7 +212,7 @@ func validateConfigFile(configFileLocation string) (*LogConfig, error) {
 		return nil, err4
 	}
 
-	logConfig := &LogConfig{LogLocationDir: logLocationDir,
+	logConfig := &utils.LogConfig{LogLocationDir: logLocationDir,
 						MaxLogFiles: maxLogFiles,
 						MaxFileToDelete: maxFileToDelete,
 						MaxSizeOfLogFiles: maxSizeOfLogFiles,
